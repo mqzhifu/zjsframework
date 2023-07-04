@@ -2,10 +2,12 @@ class Encrypt {
     dataEncrypt = 0;
     secret = "";
     iv = "";
-    constructor(dataEncrypt,secret,iv){
+    authSign = "";
+    constructor(dataEncrypt,secret,iv,authSign){
         this.dataEncrypt = dataEncrypt;
         this.secret = secret;
         this.iv = iv;
+        this.authSign = authSign;
     }
 }
 class Header{
@@ -42,9 +44,9 @@ class Http {
 
     GetUrl(uri){
         if(this.port){
-            return this.protocol + "://" + this.domain + ":" +this.port + "/" +uri;
+            return this.protocol + "://" + this.domain + ":" +this.port + "" +uri;
         }else{
-            return this.protocol + "://" + this.domain + "/" +uri;
+            return this.protocol + "://" + this.domain + "" +uri;
         }
 
 

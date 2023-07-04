@@ -1,73 +1,68 @@
 import * as Cfg from "./config.js"
 import CryptoJS from "crypto-js";
+import * as Util from "./util.js";
 
 import H from "http"
 class HttpRequest {
     Config = Cfg.Config;
-    Token  = "";
+    // Token  = "";
     constructor(config){
         this.Config = config;
     }
 
-    //发起公共请求
-    request(userCallback,uri , userToken,async,httpMethod,httpData,uriReplace,parentObj){
+    //发起公共HTTP-请求
+    request(userCallback,uri , userToken,async,httpMethod,httpData,uriReplace){
         uri = this.CheckUri(uri);
         this.CheckMethod(httpMethod)
 
         let httpUrl = this.Config.http.GetUrl(uri);
-        // var httpUrl = get_uri_by_name(urlMapKey);
-        if (uriReplace){
+        if (uriReplace){//有些URI中，包含动态变量，这里做一下替换
             for(let key  in uriReplace){
                 httpUrl = httpUrl.replace(key,uriReplace[key]);
             }
         }
-        console.log("Ajax request ,uri:"+uri , "url:"+httpUrl , " httpMethod:",httpMethod,"httpData:",httpData);
+        console.log("Http request , url:"+httpUrl , " httpMethod:",httpMethod,"httpData:",httpData);
 
-        let httpDataJsonStr = "";
-        let encryptData = "";
+        let httpDataJsonStr = "";//JS对象转JSON字符串
+        let encryptData = "";//最终 数据加密后的值
         if(httpData){
-            httpDataJsonStr = JSON.stringify(httpData);
-            encryptData = this.EncryptBodyData(httpDataJsonStr);
+            httpDataJsonStr = JSON.stringify(httpData);;//先把：JS对象转JSON字符串
+            encryptData = this.EncryptBodyData(httpDataJsonStr);//开始对传输数据进入加密
         }
         //构造 HTTP 请求的 各种 参数
         let op = this.GetRequestOption(encryptData,userToken,uri,httpMethod);
-        console.log(op);
-        // let hh = H.request(op,this.Callback);
-        // let userCallback = callback;
-        let req = H.request(op,(res)=>{
+        // console.log(op);
+        let req = H.request(op,(res)=>{//发起请求后的回调
+            //能进到这里，证明，至少 TCP 连接成功了
+            console.log('request statusCode:', res.statusCode , " uri:",uri);
+            if(res.statusCode != 200){
+                throw "request http status code err " + res.statusCode;
+            }
             let parent = this;
-            res.on('data', function(chunk) {
-                // console.log(`响应主体: ${chunk}`);
-                if(!chunk){
-                    return ;
+            // let responseData = null;
+            let resDataBuffter = [];
+            res.on('data', (chunk) => {//读取响应体数据
+                resDataBuffter.push(chunk);
+            }).on('end', () => {//响应体数据已读取完成
+                    resDataBuffter = Buffer.concat(resDataBuffter).toString();
+                    let  myData = eval("(" + resDataBuffter + ")");
+                    // console.log("resDataBuffter:",resDataBuffter,"myData:",myData);
+                    myData.data = parent.DeEncryptBodyData(myData.data);//解密响应数据
+                    if(userCallback){
+                        userCallback(uri,null,myData);
+                    }else{
+                        console.log("http request warning: no callback func.")
+                    }
                 }
-
-                let  myData = eval("(" + chunk + ")");
-                //     // console.log(parent);
-                myData.data = parent.DeEncryptBodyData(myData.data);
-                myData.data   = eval("(" + myData.data + ")");
-                if(myData.code != 200){
-                    console.log("request back err, code:"+myData.code + " msg: "+ myData.msg);
-                    return ;
-                }
-
-                if("uri" == "/login/base" && data.token != ""){
-                    parent.token = data.token;
-                }
-
-                if(userCallback){
-                    userCallback(myData.data,parentObj);
-                }
-            } );
+            );
         });
         //加入 body 数据
         req.write(encryptData);
         req.on('error', error => {
-            console.error("http request err:",error)
+            console.error("http request("+httpUrl+") err .",error )
         })
         //http request 所有参数构造完成，开始正常请求
         req.end();
-        return 1;
     }
 
     EncryptBodyData(data){
@@ -77,12 +72,12 @@ class HttpRequest {
         }
 
         switch (this.Config.encrypt.dataEncrypt){
-            case 1:
+            case 1://base64
                 let dataUTF8 = CryptoJS.enc.Utf8.parse(data);
                 data = CryptoJS.enc.Base64.stringify(dataUTF8);
-                console.log("encrypt_body_data  Base64.encode:",data);
+                // console.log("encrypt_body_data  Base64.encode:",data);
                 break;
-            case 2:
+            case 2://CBC(Pkcs7)
                 let key = CryptoJS.enc.Utf8.parse(this.Config.encrypt.secret);
                 let ivT = CryptoJS.enc.Utf8.parse(this.Config.encrypt.iv);
                 let encrypted = CryptoJS.AES.encrypt(data, key, {
@@ -91,10 +86,12 @@ class HttpRequest {
                     padding: CryptoJS.pad.Pkcs7,
                 });
                 data = encrypted.toString();
-                console.log("encrypt_body_data AES CBC data:", data, " ori:", data);
+                // console.log("encrypt_body_data AES CBC data:", data, " ori:", data);
                 break;
             default:
+                let errMsg = "err DATA_ENCRYPT value err.";
                 console.log("err DATA_ENCRYPT value err.")
+                throw errMsg;
                 break;
         }
         return data;
@@ -104,8 +101,8 @@ class HttpRequest {
             throw "method empty"
         }
 
-        if(method != "POST" && method != "GET"){
-            throw "method != POST OR GET"
+        if(method != "POST" && method != "GET" && method != "DELETE" && method != "PUT"){
+            throw "method != POST OR GET DELETE PUT"
         }
     }
     CheckUri(uri){
@@ -143,6 +140,7 @@ class HttpRequest {
         }
         return data;
     }
+    //构造 HTTP 公共请求 参数，1基础协议参数 2header公共头信息
     GetRequestOption(httpDataJsonStr,userToken,uri,method){
         let options = {
             hostname:this.Config.http.domain,
@@ -153,15 +151,31 @@ class HttpRequest {
         }
         return options;
     }
+    //获取：http header 公共头信息
     GetCommonHeader(httpDataJsonStr,userToken){
+        let debugMsg  = " projectId:"+this.Config.header.projectId;
         // console.log(userToken,this.token)
-        // if(!userToken){
+        if(!userToken){
         //     userToken = this.token;
-        // }
-        let now =  Math.round(new Date().getTime()/1000).toString();
-        // CryptoJS.MD5(str).toString()
-        console.log("make sign : md5("+ this.Config.header.projectId +" " + now +" " + this.Config.encrypt.secret +" "+ httpDataJsonStr+")");
-        var sign = CryptoJS.MD5( this.Config.header.projectId + now + this.Config.encrypt.secret + httpDataJsonStr).toString();
+            debugMsg += " userToken: no";
+        }else{
+            debugMsg += " userToken: yes";
+        }
+
+        if(!httpDataJsonStr){
+            //     userToken = this.token;
+            debugMsg += " httpDataJsonStr: no";
+        }else{
+            debugMsg += " httpDataJsonStr: yes";
+        }
+
+        let now = Util.UnixStamp10();
+        let sign = "";
+        if(this.Config.encrypt.authSign){
+            sign = CryptoJS.MD5( this.Config.header.projectId + now + this.Config.encrypt.secret + httpDataJsonStr).toString();
+            // console.log("make sign : md5("+ this.Config.header.projectId +" " + now +" " + this.Config.encrypt.secret +" "+ httpDataJsonStr+")");
+        }
+        console.log("GetCommonHeader now:",now," authSign:",this.Config.encrypt.authSign,"dataEncrypt:",this.Config.encrypt.dataEncrypt," sign:",sign + debugMsg);
         // let sign = "";
         // console.log("sign:",header_X_Project_Id,now,secret,postData);
         let header = {
@@ -177,48 +191,6 @@ class HttpRequest {
         }
 
         return header;
-    }
-
-    Callback (res){
-        let parent = this;
-        console.log('状态码:' + res.statusCode)
-        // console.log('响应头:' + JSON.stringify(res.headers))
-        res.setEncoding('utf8');
-
-
-        // this.DeEncryptBodyData("aaa");
-        // res.on('data', function(chunk) {
-        //     console.log(`响应主体: ${chunk}`);
-        //     if(!chunk){
-        //         return ;
-        //     }
-        //
-        //     let  myData = eval("(" + chunk + ")");
-        //     // console.log(parent);
-        //     myData.data = this.DeEncryptBodyData(myData.data);
-        //
-        //     if(myData.code != 200){
-        //         console.log("request back err, code:"+myData.code + " msg: "+ myData.msg);
-        //         return ;
-        //     }
-        //
-        // }.bind(parent));
-
-
-
-        // res.on('end', () => {
-        //     console.log('响应中已无数据');
-        // });
-    }
-
-
-    formatUnixTime(us){
-        if (us <= 0 ){
-            return "--";
-        }
-        let tims = new Date(us*1000);
-        let format = tims.toLocaleString()
-        return format;
     }
 
 }

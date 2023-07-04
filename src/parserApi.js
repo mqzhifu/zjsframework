@@ -1,8 +1,8 @@
 import yaml from "yamljs"
 import fs from "fs"
 class ParserApi{
-    constructor() {
-        // this.arr = [];
+    constructor(logLevel) {
+        this.logLevel = logLevel;
     }
 
     Init(){
@@ -20,72 +20,49 @@ class ParserApi{
                 let row = sets[path][method];
                 console.log("path:"+ path +" , method:"+method + " , "+ "" );
                 if(  typeof(row.parameters) =="undefined" ){
-                    console.log( "error function not parameters :",sets[path][method])
+                    // console.log( "warning: function not parameters :",sets[path][method])
+                    templateFuncs += this.makeFunction(path,method,row.description,"no parameters","","");
                     continue;
                 }
-                let parametersTypeIsBody = 0;
-                let parametersList = [];
+                let parametersTypeIsBody = 0;//参数如果是json-body 模式，就一个参数(是一个对象)
+                let parametersList = [];//保存 每个参数的 描述信息
+
+                console.log("parameters cnt:",this.ObjCount(row.parameters));
                 for (let para in row.parameters) {//遍历参数
+                    // console.log("para key:",para)
                     if(row.parameters[para].in == "header"){
+                        // console.log("im header")
                         continue;
                     }else if (row.parameters[para].in == "body"){
+                        // console.log("im body")
                         parametersTypeIsBody = 1;
                         // console.log(row.parameters[para])
                         if( typeof(  row.parameters[para].schema["$ref"] ) !="undefined"){
-                            let objKey =  row.parameters[para].schema["$ref"];
-                            let objKeyArr = objKey.split("/");
-                            // console.log(objKeyArr[2],swaggerContent.definitions[objKeyArr[2]].properties)
-
-                            templateFuncs += this.makeFunction(path,method,row.description,1,objKeyArr[2],swaggerContent);
-                            // let functionNane = "";
-                            // let pathArr = path.split("/");
-
-
-                            // for(var i=0;i<pathArr.length;i++){
-                            //     if(pathArr[i] == "/"){
-                            //         continue;
-                            //     }
-                            //
-                            //     if(pathArr[i][0] == "{"){
-                            //         continue;
-                            //     }
-                            //
-                            //     let n = pathArr[i].toLowerCase().replace(/( |^)[a-z]/g,(L)=>L.toUpperCase());
-                            //
-                            //     functionNane += n;
-                            // }
-                            //
-                            // let code = this.GetFunctionTemplate();
-                            // code = code.replace("#uri#",path);
-                            // code = code.replace("#method#",method);
-                            // code = code.replace("#Funcname#",functionNane);
-                            // if( typeof(row.description)!="undefined"){
-                            //     console.log("row.description:",row.description)
-                            //     let desc = row.description.replace("\n","");
-                            //     code = code.replace("#desc#",desc);
-                            // }
-                            // if( objKeyArr[2] !=  "request.Empty"){
-                            //     code = code.replace("#body#",JSON.stringify(swaggerContent.definitions[objKeyArr[2]].properties));
-                            // }else{
-                            //     code = code.replace("#body#","null");
-                            // }
-                            //
-                            // // console.log(code)
-                            // templateFuncs += code;
+                            let objKey =  row.parameters[para].schema["$ref"];//指向 某个 结构体对象
+                            let objKeyArr = objKey.split("/");//对象的路径有前缀，得去掉
+                            let obj = objKeyArr[2];
+                            // swaggerContent[definitions][]
+                            // console.log("objKey:",objKey);
+                            templateFuncs += this.makeFunction(path,method,row.description,"body",obj,swaggerContent);
                         }
-
-                        // swaggerContent[definitions][]
-                        // console.log("objKey:",objKey);
                     } else if(row.parameters[para].in == "path"){
+                        console.log("im path")
                         parametersList.push(row.parameters[para]);
                     } else if(row.parameters[para].in == "formData"){
-
+                        parametersList.push(row.parameters[para]);
+                        console.log("im formData")
                     }else{
-                        console.log("not founc :",row.parameters[para])
+                        console.log("not found :",row.parameters[para])
                     }
                 }//遍历参数
                 if(!parametersTypeIsBody){
-                    console.log(parametersList);
+                    console.log("parametersList cnt:",parametersList.length);
+                    if( parametersList.length > 0 ){
+                        let templateFuncsRow = this.makeFunction(path,method,row.description,"path","","null");
+                        templateFuncs += templateFuncsRow;
+                        // console.log(parametersList,templateFuncsRow)
+                        // return 1;
+                    }
                 }
             }//method
         }//paths
@@ -117,43 +94,37 @@ class ApiLogic{
         return code;
     }
 
-    makeFunction(path , method,description,isBody,obj,swaggerContent){
-        let pathArr = path.split("/");
-
-        let functionName = "";
-        for(var i=0;i<pathArr.length;i++){
-            if(pathArr[i] == "/"){
-                continue;
-            }
-
-            if(pathArr[i][0] == "{"){
-                continue;
-            }
-
-            let n = pathArr[i].toLowerCase().replace(/( |^)[a-z]/g,(L)=>L.toUpperCase());
-
-            functionName += n;
-        }
-
-        let code = this.GetFunctionTemplate();
+    makeFunction(path , method,description,type,obj,swaggerContent){
+        let functionName = this.ParserFuncNameByPath(path);//解析函数名
+        let code = this.GetFunctionTemplate();//获取函数体内的代码模板
         code = code.replace("#uri#",path);
-        code = code.replace("#method#",method);
+        code = code.replace("#method#",method.toUpperCase());
         code = code.replace("#Funcname#",functionName);
         if( typeof(description)!="undefined"){
             console.log("row.description:",description)
             let desc = description.replace("\n","");
             code = code.replace("#desc#",desc);
         }
-        if(obj !=  "request.Empty"){
-            if(isBody){
-                code = code.replace("#body#",JSON.stringify(swaggerContent.definitions[obj].properties));
-            }else{
 
-            }
-
-        }else{
-            code = code.replace("#body#","null");
+        switch (type){
+            case "body":
+                if(obj !=  "request.Empty"){
+                    code = code.replace("#body#",JSON.stringify(swaggerContent.definitions[obj].properties));
+                }else{
+                    code = code.replace("#body#","null");
+                }
+                break;
+            case "path":
+                code = code.replace("#body#","null");
+                // console.log("path")
+                break;
+            case "no parameters":
+                code = code.replace("#body#","null");
+                break;
+            default:
+                console.log("switch err: type ",type)
         }
+
         return code;
         // console.log(code)
     }
@@ -168,7 +139,34 @@ class ApiLogic{
     //     }
     // }
 
+    ParserFuncNameByPath(path){
+        let functionName = "";
+        let pathArr = path.split("/");
+
+        for(var i=0;i<pathArr.length;i++){
+            if(pathArr[i] == "/"){
+                continue;
+            }
+
+            if(pathArr[i][0] == "{"){//有些函数URL中，包含动态变量，如：/{id}/{name}
+                continue;
+            }
+            //首字母转大写
+            let n = pathArr[i].toLowerCase().replace(/( |^)[a-z]/g,(L)=>L.toUpperCase());
+            functionName += n;
+        }
+        return functionName
+    }
+
+    ObjCount(obj){
+        var cnt = 0;
+        for(let key in obj){
+            cnt++;
+        }
+        return cnt;
+    }
+
 }
 
-let parserApi = new ParserApi();
+let parserApi = new ParserApi("debug");
 parserApi.Init();
