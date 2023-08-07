@@ -11,10 +11,12 @@ class HttpRequest {
     }
 
     //发起公共HTTP-请求
+    //这里参数比较多，主要是相对 灵活些
+    //比较恶心的：回调模式
     request(userCallback,uri , userToken,async,httpMethod,httpData,uriReplace){
         uri = this.CheckUri(uri);
         this.CheckMethod(httpMethod)
-
+        //获取完整的URL
         let httpUrl = this.Config.http.GetUrl(uri);
         if (uriReplace){//有些URI中，包含动态变量，这里做一下替换
             for(let key  in uriReplace){
@@ -23,16 +25,16 @@ class HttpRequest {
         }
         console.log("Http request , url:"+httpUrl , " httpMethod:",httpMethod,"httpData:",httpData);
 
-        let httpDataJsonStr = "";//JS对象转JSON字符串
-        let encryptData = "";//最终 数据加密后的值
+        let httpDataJsonStr = "";   //JS对象转JSON字符串
+        let encryptData = "";       //最终 数据加密后的值
         if(httpData){
-            httpDataJsonStr = JSON.stringify(httpData);;//先把：JS对象转JSON字符串
+            httpDataJsonStr = JSON.stringify(httpData);         //先把：JS对象转JSON字符串
             encryptData = this.EncryptBodyData(httpDataJsonStr);//开始对传输数据进入加密
         }
         //构造 HTTP 请求的 各种 参数
         let op = this.GetRequestOption(encryptData,userToken,uri,httpMethod);
         // console.log(op);
-        let req = H.request(op,(res)=>{//发起请求后的回调
+        let req = H.request(op,(res)=>{//请求后的回调
             //能进到这里，证明，至少 TCP 连接成功了
             console.log('request statusCode:', res.statusCode , " uri:",uri);
             if(res.statusCode != 200){
@@ -96,6 +98,7 @@ class HttpRequest {
         }
         return data;
     }
+    //检查 http method 是否正确
     CheckMethod(method){
         if(!method){
             throw "method empty"
@@ -105,6 +108,7 @@ class HttpRequest {
             throw "method != POST OR GET DELETE PUT"
         }
     }
+    //检查 uri 是否正确
     CheckUri(uri){
         if(!uri){
             throw "uri empty"

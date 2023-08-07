@@ -1,5 +1,10 @@
 import yaml from "yamljs"
 import fs from "fs"
+
+//解析后端 yaml 的 api 接口配置，自动生成 JS 的HTTP 请求配置信息
+//忽略吧，只是做个测试，正规生成 SDK 代码，还是后端语言来做，如：PY JAVA
+
+
 class ParserApi{
     constructor(logLevel) {
         this.logLevel = logLevel;

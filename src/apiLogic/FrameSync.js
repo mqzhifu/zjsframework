@@ -1,7 +1,7 @@
-import * as Cfg from "./config.js";
-import * as HttpRequest   from "./httpRequest.js"
+import * as Cfg from "./../config.js";
+import * as HttpRequest from "./../httpRequest.js"
 
-class ApiLogic{
+class FrameSync{
     constructor(header,encrypt,http) {
         this.token = "";//登陆成功后，保存 token
         this.callbackList= [];//保存调用者的：回调函数
@@ -9,6 +9,7 @@ class ApiLogic{
         let config = new Cfg.Config(header,encrypt,http);
         this.HttpRequest = new HttpRequest.HttpRequest(config);
     }
+    
     CommonCallback (uri,err,data){
         let prefix = "CommonCallback";
         console.log(prefix," uri:",uri)
@@ -48,47 +49,15 @@ class ApiLogic{
             console.log("err:uri not in list .",uri)
         }
     }
-
-    BaseLogin(obj,callback){
-        // let loginData = {'username':username,"password":ps};
-        let uri = "/base/login";
+    
+    //用于断线重连，数据量可能较大
+    FrameSyncRoomHistory(obj,callback){
+        let uri = "/frame/sync/room/history";
         let method = "POST";
+        //let loginData = {"playerId":0,"roomId":"","sequenceNumberEnd":0,"sequenceNumberStart":0,"sourceUid":0};
         this.callbackList[uri] = callback;
         this.HttpRequest.request(this.CommonCallback.bind(this),uri,this.token,false,method,obj,"");
     }
-    GatewayConfig(obj,callback){
-        let uri = "/gateway/config";
-        let method = "GET";
-        this.callbackList[uri] = callback;
-        this.HttpRequest.request(this.CommonCallback.bind(this),uri,this.token,false,method,"","",this);
-    }
-    GatewayActionMap(obj,callback){
-        let uri = "/gateway/action/map";
-        let method = "GET";
-        this.callbackList[uri] = callback;
-        this.HttpRequest.request(this.CommonCallback.bind(this),uri,this.token,false,method,"","",this);
-    }
-    GatewayFdList(obj,callback){
-        let uri = "/gateway/fd/list";
-        let method = "GET";
-        this.callbackList[uri] = callback;
-        this.HttpRequest.request(this.CommonCallback.bind(this),uri,this.token,false,method,"","",this);
-
-    }
-    GatewaySendMsg(obj,callback){
-        let uri = "/gateway/send/msg";
-        let method = "GET";
-        this.HttpRequest.request(callback,uri,this.token,false,method,"","",this);
-
-        // /gateway/total
-    }
-    GatewayTotal(obj,callback){
-        let uri = "/gateway/total";
-        let method = "GET";
-        this.callbackList[uri] = callback;
-        this.HttpRequest.request(this.CommonCallback.bind(this),uri,this.token,false,method,"","",this);
-    }
-
+    
 }
-
-export {ApiLogic}
+export {FrameSync}
