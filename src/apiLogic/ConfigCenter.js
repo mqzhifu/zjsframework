@@ -1,87 +1,76 @@
-import * as Cfg from "./../config.js";
-import * as HttpRequest from "./../httpRequest.js"
 
-class ConfigCenter{
-    constructor(header,encrypt,http) {
-        this.token = "";//登陆成功后，保存 token
-        this.callbackList= [];//保存调用者的：回调函数
-
-        let config = new Cfg.Config(header,encrypt,http);
-        this.HttpRequest = new HttpRequest.HttpRequest(config);
+import * as ApiLogic from "./apiLogic.js";
+class ConfigCenter {
+  
+    constructor(httpRequest) {
+        this.Caller = null;
+        this.HttpRequest = httpRequest
     }
     
-    CommonCallback (uri,err,data){
-        let prefix = "CommonCallback";
-        console.log(prefix," uri:",uri)
-        if(err){
-            console.log(prefix," err:",err)
-            this.ExecCall(uri,err,data)
-            return 1;
-        }
-
-        if(!data){
-            console.log(prefix," data empty.")
-            this.ExecCall(uri,err,data)
-            return 1;
-        }
-
-        if(data.code != 200){
-            console.log(prefix,"request back err, code:"+data.code + " msg: "+ data.msg);
-            this.ExecCall(uri,err,data)
-            return 1;
-        }
-
-        // console.log(data);
-        // return 1;
-        if(uri == "/base/login"){
-            console.log(prefix," set token.");
-            this.token = data.data.token;
-        }
-        // let funcName = this.UriTurnFunName(uri);
-        this.ExecCall(uri,err,data)
-        return 1;
+    SetCaller(callerObj){
+        this.Caller = callerObj;
     }
-
-    ExecCall(uri,err,data){
-        if(!!(uri in this.callbackList)){
-            this.callbackList[uri](uri,err,data);
-        }else{
-            console.log("err:uri not in list .",uri)
-        }
-    }
-    
     //
-    ConfigCenterCreateModule(obj,callback){
+    ConfigCenterCreateModule(data,callback,uriReplace){                             
         let uri = "/config/center/create/module";
         let method = "POST";
-        //let loginData = {"env":0,"key":"","module":"","value":""};
-        this.callbackList[uri] = callback;
-        this.HttpRequest.request(this.CommonCallback.bind(this),uri,this.token,false,method,obj,"");
+        
+        if (uriReplace){//有些URI中，包含动态变量，这里做一下替换
+            for(let key  in uriReplace){
+                uri = uri.replace("{"+ key + "}",uriReplace[key]);
+            }
+        }
+        
+        //let loginData = ;
+        this.Caller.callbackList[uri] = callback;
+        this.HttpRequest.request(this.Caller.CommonCallback.bind(this.Caller),uri,this.Caller.token,false,method,data,uriReplace);
     }
     //
-    ConfigCenterGetKey(obj,callback){
+    ConfigCenterGetKey(data,callback,uriReplace){                             
         let uri = "/config/center/get/key";
         let method = "POST";
-        //let loginData = {"env":0,"key":"","module":"","value":""};
-        this.callbackList[uri] = callback;
-        this.HttpRequest.request(this.CommonCallback.bind(this),uri,this.token,false,method,obj,"");
+        
+        if (uriReplace){//有些URI中，包含动态变量，这里做一下替换
+            for(let key  in uriReplace){
+                uri = uri.replace("{"+ key + "}",uriReplace[key]);
+            }
+        }
+        
+        //let loginData = ;
+        this.Caller.callbackList[uri] = callback;
+        this.HttpRequest.request(this.Caller.CommonCallback.bind(this.Caller),uri,this.Caller.token,false,method,data,uriReplace);
     }
     //
-    ConfigCenterGetModule(obj,callback){
+    ConfigCenterGetModule(data,callback,uriReplace){                             
         let uri = "/config/center/get/module";
         let method = "POST";
-        //let loginData = {"env":0,"key":"","module":"","value":""};
-        this.callbackList[uri] = callback;
-        this.HttpRequest.request(this.CommonCallback.bind(this),uri,this.token,false,method,obj,"");
+        
+        if (uriReplace){//有些URI中，包含动态变量，这里做一下替换
+            for(let key  in uriReplace){
+                uri = uri.replace("{"+ key + "}",uriReplace[key]);
+            }
+        }
+        
+        //let loginData = ;
+        this.Caller.callbackList[uri] = callback;
+        this.HttpRequest.request(this.Caller.CommonCallback.bind(this.Caller),uri,this.Caller.token,false,method,data,uriReplace);
     }
     //
-    ConfigCenterModuleSetKey(obj,callback){
+    ConfigCenterModuleSetKey(data,callback,uriReplace){                             
         let uri = "/config/center/module/set/key";
         let method = "POST";
-        //let loginData = {"env":0,"key":"","module":"","value":""};
-        this.callbackList[uri] = callback;
-        this.HttpRequest.request(this.CommonCallback.bind(this),uri,this.token,false,method,obj,"");
+        
+        if (uriReplace){//有些URI中，包含动态变量，这里做一下替换
+            for(let key  in uriReplace){
+                uri = uri.replace("{"+ key + "}",uriReplace[key]);
+            }
+        }
+        
+        //let loginData = ;
+        this.Caller.callbackList[uri] = callback;
+        this.HttpRequest.request(this.Caller.CommonCallback.bind(this.Caller),uri,this.Caller.token,false,method,data,uriReplace);
     }
+    
     
 }
 export {ConfigCenter}

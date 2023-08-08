@@ -1,119 +1,196 @@
-import * as Cfg from "./../config.js";
-import * as HttpRequest from "./../httpRequest.js"
 
-class TwinAgora{
-    constructor(header,encrypt,http) {
-        this.token = "";//登陆成功后，保存 token
-        this.callbackList= [];//保存调用者的：回调函数
-
-        let config = new Cfg.Config(header,encrypt,http);
-        this.HttpRequest = new HttpRequest.HttpRequest(config);
+import * as ApiLogic from "./apiLogic.js";
+class TwinAgora {
+  
+    constructor(httpRequest) {
+        this.Caller = null;
+        this.HttpRequest = httpRequest
     }
     
-    CommonCallback (uri,err,data){
-        let prefix = "CommonCallback";
-        console.log(prefix," uri:",uri)
-        if(err){
-            console.log(prefix," err:",err)
-            this.ExecCall(uri,err,data)
-            return 1;
-        }
-
-        if(!data){
-            console.log(prefix," data empty.")
-            this.ExecCall(uri,err,data)
-            return 1;
-        }
-
-        if(data.code != 200){
-            console.log(prefix,"request back err, code:"+data.code + " msg: "+ data.msg);
-            this.ExecCall(uri,err,data)
-            return 1;
-        }
-
-        // console.log(data);
-        // return 1;
-        if(uri == "/base/login"){
-            console.log(prefix," set token.");
-            this.token = data.data.token;
-        }
-        // let funcName = this.UriTurnFunName(uri);
-        this.ExecCall(uri,err,data)
-        return 1;
+    SetCaller(callerObj){
+        this.Caller = callerObj;
     }
-
-    ExecCall(uri,err,data){
-        if(!!(uri in this.callbackList)){
-            this.callbackList[uri](uri,err,data);
-        }else{
-            console.log("err:uri not in list .",uri)
+    //当有未停止的云端录制时，自动stop掉
+    TwinAgoraCloudRecordCheck(data,callback,uriReplace){                             
+        let uri = "/twin/agora/cloud/record/check";
+        let method = "POST";
+        
+        if (uriReplace){//有些URI中，包含动态变量，这里做一下替换
+            for(let key  in uriReplace){
+                uri = uri.replace("{"+ key + "}",uriReplace[key]);
+            }
         }
+        
+        //let loginData = ;
+        this.Caller.callbackList[uri] = callback;
+        this.HttpRequest.request(this.Caller.CommonCallback.bind(this.Caller),uri,this.Caller.token,false,method,data,uriReplace);
     }
-    
     //录屏时，要先从声网，申请一个资源ID，之后，才能开始（声网限制：每秒最多请求10次）
-    TwinAgoraCloudRecordCreateAcquire(obj,callback){
+    TwinAgoraCloudRecordCreateAcquire(data,callback,uriReplace){                             
         let uri = "/twin/agora/cloud/record/create/acquire";
         let method = "POST";
-        //let loginData = {"clientRequest":{"region":"","resourceExpiredHour":0,"scene":0},"cname":"","uid":""};
-        this.callbackList[uri] = callback;
-        this.HttpRequest.request(this.CommonCallback.bind(this),uri,this.token,false,method,obj,"");
+        
+        if (uriReplace){//有些URI中，包含动态变量，这里做一下替换
+            for(let key  in uriReplace){
+                uri = uri.replace("{"+ key + "}",uriReplace[key]);
+            }
+        }
+        
+        //let loginData = ;
+        this.Caller.callbackList[uri] = callback;
+        this.HttpRequest.request(this.Caller.CommonCallback.bind(this.Caller),uri,this.Caller.token,false,method,data,uriReplace);
+    }
+    //获取用户的录屏记录列表
+    TwinAgoraCloudRecordList(data,callback,uriReplace){                             
+        let uri = "/twin/agora/cloud/record/list";
+        let method = "POST";
+        
+        if (uriReplace){//有些URI中，包含动态变量，这里做一下替换
+            for(let key  in uriReplace){
+                uri = uri.replace("{"+ key + "}",uriReplace[key]);
+            }
+        }
+        
+        //let loginData = ;
+        this.Caller.callbackList[uri] = callback;
+        this.HttpRequest.request(this.Caller.CommonCallback.bind(this.Caller),uri,this.Caller.token,false,method,data,uriReplace);
     }
     //将小文件，合并成一个大文件
-    TwinAgoraCloudRecordOssFiles(obj,callback){
+    TwinAgoraCloudRecordOssFiles(data,callback,uriReplace){                             
         let uri = "/twin/agora/cloud/record/oss/files/{rid}";
         let method = "GET";
-        //let loginData = {"rid":""};
-        this.callbackList[uri] = callback;
-        this.HttpRequest.request(this.CommonCallback.bind(this),uri,this.token,false,method,obj,"");
+        
+        if (uriReplace){//有些URI中，包含动态变量，这里做一下替换
+            for(let key  in uriReplace){
+                uri = uri.replace("{"+ key + "}",uriReplace[key]);
+            }
+        }
+        
+        //let loginData = ;
+        this.Caller.callbackList[uri] = callback;
+        this.HttpRequest.request(this.Caller.CommonCallback.bind(this.Caller),uri,this.Caller.token,false,method,data,uriReplace);
     }
     //根据上一步获取到的ResourceId，
-    TwinAgoraCloudRecordQuery(obj,callback){
+    TwinAgoraCloudRecordQuery(data,callback,uriReplace){                             
         let uri = "/twin/agora/cloud/record/query/{rid}";
         let method = "GET";
-        //let loginData = {"rid":""};
-        this.callbackList[uri] = callback;
-        this.HttpRequest.request(this.CommonCallback.bind(this),uri,this.token,false,method,obj,"");
+        
+        if (uriReplace){//有些URI中，包含动态变量，这里做一下替换
+            for(let key  in uriReplace){
+                uri = uri.replace("{"+ key + "}",uriReplace[key]);
+            }
+        }
+        
+        //let loginData = ;
+        this.Caller.callbackList[uri] = callback;
+        this.HttpRequest.request(this.Caller.CommonCallback.bind(this.Caller),uri,this.Caller.token,false,method,data,uriReplace);
     }
     //根据上一步获取到的ResourceId，开始录屏，其数据会推送到3方的OSS上
-    TwinAgoraCloudRecordStart(obj,callback){
+    TwinAgoraCloudRecordStart(data,callback,uriReplace){                             
         let uri = "/twin/agora/cloud/record/start";
         let method = "POST";
-        //let loginData = {"record_id":0};
-        this.callbackList[uri] = callback;
-        this.HttpRequest.request(this.CommonCallback.bind(this),uri,this.token,false,method,obj,"");
+        
+        if (uriReplace){//有些URI中，包含动态变量，这里做一下替换
+            for(let key  in uriReplace){
+                uri = uri.replace("{"+ key + "}",uriReplace[key]);
+            }
+        }
+        
+        //let loginData = ;
+        this.Caller.callbackList[uri] = callback;
+        this.HttpRequest.request(this.Caller.CommonCallback.bind(this.Caller),uri,this.Caller.token,false,method,data,uriReplace);
     }
     //各种异常情况都最好调一下stop，不然OSS要一直花钱呐....~~~~~
-    TwinAgoraCloudRecordStop(obj,callback){
+    TwinAgoraCloudRecordStop(data,callback,uriReplace){                             
         let uri = "/twin/agora/cloud/record/stop/{rid}/{type}";
         let method = "GET";
-        //let loginData = {"rid":""};
-        this.callbackList[uri] = callback;
-        this.HttpRequest.request(this.CommonCallback.bind(this),uri,this.token,false,method,obj,"");
+        
+        if (uriReplace){//有些URI中，包含动态变量，这里做一下替换
+            for(let key  in uriReplace){
+                uri = uri.replace("{"+ key + "}",uriReplace[key]);
+            }
+        }
+        
+        //let loginData = ;
+        this.Caller.callbackList[uri] = callback;
+        this.HttpRequest.request(this.Caller.CommonCallback.bind(this.Caller),uri,this.Caller.token,false,method,data,uriReplace);
+    }
+    //主要是超时时间的配置，C端需要使用
+    TwinAgoraConfig(data,callback,uriReplace){                             
+        let uri = "/twin/agora/config";
+        let method = "GET";
+        
+        if (uriReplace){//有些URI中，包含动态变量，这里做一下替换
+            for(let key  in uriReplace){
+                uri = uri.replace("{"+ key + "}",uriReplace[key]);
+            }
+        }
+        
+        //let loginData = ;
+        this.Caller.callbackList[uri] = callback;
+        this.HttpRequest.request(this.Caller.CommonCallback.bind(this.Caller),uri,this.Caller.token,false,method,data,uriReplace);
     }
     //使用RTC前，动态获取token，然后再登陆声网，才可正常使用声网的功能(token时效是一天，如果存在且未失效正常返回，否则创建新的)
-    TwinAgoraRtcGetToken(obj,callback){
+    TwinAgoraRtcGetToken(data,callback,uriReplace){                             
         let uri = "/twin/agora/rtc/get/token";
         let method = "POST";
-        //let loginData = {"channel":"","username":""};
-        this.callbackList[uri] = callback;
-        this.HttpRequest.request(this.CommonCallback.bind(this),uri,this.token,false,method,obj,"");
+        
+        if (uriReplace){//有些URI中，包含动态变量，这里做一下替换
+            for(let key  in uriReplace){
+                uri = uri.replace("{"+ key + "}",uriReplace[key]);
+            }
+        }
+        
+        //let loginData = ;
+        this.Caller.callbackList[uri] = callback;
+        this.HttpRequest.request(this.Caller.CommonCallback.bind(this.Caller),uri,this.Caller.token,false,method,data,uriReplace);
     }
     //使用RTM前，动态获取token，然后再登陆声网，才可正常使用声网的功能(token时效是一天，如果存在且未失效正常返回，否则创建新的)
-    TwinAgoraRtmGetToken(obj,callback){
+    TwinAgoraRtmGetToken(data,callback,uriReplace){                             
         let uri = "/twin/agora/rtm/get/token";
         let method = "POST";
-        //let loginData = {"channel":"","username":""};
-        this.callbackList[uri] = callback;
-        this.HttpRequest.request(this.CommonCallback.bind(this),uri,this.token,false,method,obj,"");
+        
+        if (uriReplace){//有些URI中，包含动态变量，这里做一下替换
+            for(let key  in uriReplace){
+                uri = uri.replace("{"+ key + "}",uriReplace[key]);
+            }
+        }
+        
+        //let loginData = ;
+        this.Caller.callbackList[uri] = callback;
+        this.HttpRequest.request(this.Caller.CommonCallback.bind(this.Caller),uri,this.Caller.token,false,method,data,uriReplace);
+    }
+    //如：房间、用户连接状态等
+    TwinAgoraSocketTools(data,callback,uriReplace){                             
+        let uri = "/twin/agora/socket/tools";
+        let method = "GET";
+        
+        if (uriReplace){//有些URI中，包含动态变量，这里做一下替换
+            for(let key  in uriReplace){
+                uri = uri.replace("{"+ key + "}",uriReplace[key]);
+            }
+        }
+        
+        //let loginData = ;
+        this.Caller.callbackList[uri] = callback;
+        this.HttpRequest.request(this.Caller.CommonCallback.bind(this.Caller),uri,this.Caller.token,false,method,data,uriReplace);
     }
     //如：发送标注图次数、发送图片次数、发送视频次数
-    TwinAgoraStatisticsEventAlls(obj,callback){
+    TwinAgoraStatisticsEventAlls(data,callback,uriReplace){                             
         let uri = "/twin/agora/statistics/event/alls";
         let method = "GET";
-        //let loginData = {"start_time":"","end_time":""};
-        this.callbackList[uri] = callback;
-        this.HttpRequest.request(this.CommonCallback.bind(this),uri,this.token,false,method,obj,"");
+        
+        if (uriReplace){//有些URI中，包含动态变量，这里做一下替换
+            for(let key  in uriReplace){
+                uri = uri.replace("{"+ key + "}",uriReplace[key]);
+            }
+        }
+        
+        //let loginData = ;
+        this.Caller.callbackList[uri] = callback;
+        this.HttpRequest.request(this.Caller.CommonCallback.bind(this.Caller),uri,this.Caller.token,false,method,data,uriReplace);
     }
+    
     
 }
 export {TwinAgora}

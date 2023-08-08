@@ -1,63 +1,121 @@
-import * as Cfg from "./../config.js";
-import * as HttpRequest from "./../httpRequest.js"
 
-class Gateway{
-    constructor(header,encrypt,http) {
-        this.token = "";//登陆成功后，保存 token
-        this.callbackList= [];//保存调用者的：回调函数
-
-        let config = new Cfg.Config(header,encrypt,http);
-        this.HttpRequest = new HttpRequest.HttpRequest(config);
+import * as ApiLogic from "./apiLogic.js";
+class Gateway {
+  
+    constructor(httpRequest) {
+        this.Caller = null;
+        this.HttpRequest = httpRequest
     }
     
-    CommonCallback (uri,err,data){
-        let prefix = "CommonCallback";
-        console.log(prefix," uri:",uri)
-        if(err){
-            console.log(prefix," err:",err)
-            this.ExecCall(uri,err,data)
-            return 1;
-        }
-
-        if(!data){
-            console.log(prefix," data empty.")
-            this.ExecCall(uri,err,data)
-            return 1;
-        }
-
-        if(data.code != 200){
-            console.log(prefix,"request back err, code:"+data.code + " msg: "+ data.msg);
-            this.ExecCall(uri,err,data)
-            return 1;
-        }
-
-        // console.log(data);
-        // return 1;
-        if(uri == "/base/login"){
-            console.log(prefix," set token.");
-            this.token = data.data.token;
-        }
-        // let funcName = this.UriTurnFunName(uri);
-        this.ExecCall(uri,err,data)
-        return 1;
+    SetCaller(callerObj){
+        this.Caller = callerObj;
     }
-
-    ExecCall(uri,err,data){
-        if(!!(uri in this.callbackList)){
-            this.callbackList[uri](uri,err,data);
-        }else{
-            console.log("err:uri not in list .",uri)
+    //后期考虑替换掉PHP解析过程，直接用GO
+    GatewayActionMap(data,callback,uriReplace){                             
+        let uri = "/gateway/action/map";
+        let method = "GET";
+        
+        if (uriReplace){//有些URI中，包含动态变量，这里做一下替换
+            for(let key  in uriReplace){
+                uri = uri.replace("{"+ key + "}",uriReplace[key]);
+            }
         }
+        
+        //let loginData = ;
+        this.Caller.callbackList[uri] = callback;
+        this.HttpRequest.request(this.Caller.CommonCallback.bind(this.Caller),uri,this.Caller.token,false,method,data,uriReplace);
     }
-    
+    //主要是长连接的配置(端口|协议)
+    GatewayConfig(data,callback,uriReplace){                             
+        let uri = "/gateway/config";
+        let method = "GET";
+        
+        if (uriReplace){//有些URI中，包含动态变量，这里做一下替换
+            for(let key  in uriReplace){
+                uri = uri.replace("{"+ key + "}",uriReplace[key]);
+            }
+        }
+        
+        //let loginData = ;
+        this.Caller.callbackList[uri] = callback;
+        this.HttpRequest.request(this.Caller.CommonCallback.bind(this.Caller),uri,this.Caller.token,false,method,data,uriReplace);
+    }
+    //长连接列表，FD => UID
+    GatewayFdList(data,callback,uriReplace){                             
+        let uri = "/gateway/fd/list";
+        let method = "GET";
+        
+        if (uriReplace){//有些URI中，包含动态变量，这里做一下替换
+            for(let key  in uriReplace){
+                uri = uri.replace("{"+ key + "}",uriReplace[key]);
+            }
+        }
+        
+        //let loginData = ;
+        this.Caller.callbackList[uri] = callback;
+        this.HttpRequest.request(this.Caller.CommonCallback.bind(this.Caller),uri,this.Caller.token,false,method,data,uriReplace);
+    }
+    //proto接口及GRPC微服务函数的信息等
+    GatewayProto(data,callback,uriReplace){                             
+        let uri = "/gateway/proto";
+        let method = "GET";
+        
+        if (uriReplace){//有些URI中，包含动态变量，这里做一下替换
+            for(let key  in uriReplace){
+                uri = uri.replace("{"+ key + "}",uriReplace[key]);
+            }
+        }
+        
+        //let loginData = ;
+        this.Caller.callbackList[uri] = callback;
+        this.HttpRequest.request(this.Caller.CommonCallback.bind(this.Caller),uri,this.Caller.token,false,method,data,uriReplace);
+    }
     //给某个UID发送一条消息，主要用于测试
-    GatewaySendMsg(obj,callback){
+    GatewaySendMsg(data,callback,uriReplace){                             
         let uri = "/gateway/send/msg";
         let method = "POST";
-        //let loginData = {"content":"","source_project_id":0,"source_uid":0,"target_project_id":0,"target_uids":"","type":0};
-        this.callbackList[uri] = callback;
-        this.HttpRequest.request(this.CommonCallback.bind(this),uri,this.token,false,method,obj,"");
+        
+        if (uriReplace){//有些URI中，包含动态变量，这里做一下替换
+            for(let key  in uriReplace){
+                uri = uri.replace("{"+ key + "}",uriReplace[key]);
+            }
+        }
+        
+        //let loginData = ;
+        this.Caller.callbackList[uri] = callback;
+        this.HttpRequest.request(this.Caller.CommonCallback.bind(this.Caller),uri,this.Caller.token,false,method,data,uriReplace);
     }
+    //通过网关调取后端服务(grpc)
+    GatewayService(data,callback,uriReplace){                             
+        let uri = "/gateway/service/{service_name}/{func_name}";
+        let method = "POST";
+        
+        if (uriReplace){//有些URI中，包含动态变量，这里做一下替换
+            for(let key  in uriReplace){
+                uri = uri.replace("{"+ key + "}",uriReplace[key]);
+            }
+        }
+        
+        //let loginData = ;
+        this.Caller.callbackList[uri] = callback;
+        this.HttpRequest.request(this.Caller.CommonCallback.bind(this.Caller),uri,this.Caller.token,false,method,data,uriReplace);
+    }
+    //metrics
+    GatewayTotal(data,callback,uriReplace){                             
+        let uri = "/gateway/total";
+        let method = "GET";
+        
+        if (uriReplace){//有些URI中，包含动态变量，这里做一下替换
+            for(let key  in uriReplace){
+                uri = uri.replace("{"+ key + "}",uriReplace[key]);
+            }
+        }
+        
+        //let loginData = ;
+        this.Caller.callbackList[uri] = callback;
+        this.HttpRequest.request(this.Caller.CommonCallback.bind(this.Caller),uri,this.Caller.token,false,method,data,uriReplace);
+    }
+    
     
 }
 export {Gateway}

@@ -18,11 +18,13 @@ class HttpRequest {
         this.CheckMethod(httpMethod)
         //获取完整的URL
         let httpUrl = this.Config.http.GetUrl(uri);
-        if (uriReplace){//有些URI中，包含动态变量，这里做一下替换
-            for(let key  in uriReplace){
-                httpUrl = httpUrl.replace(key,uriReplace[key]);
-            }
-        }
+        // if (uriReplace){//有些URI中，包含动态变量，这里做一下替换
+        //     console.log("uriReplace:",uriReplace);
+        //     for(let key  in uriReplace){
+        //         httpUrl = httpUrl.replace("{"+ key + "}",uriReplace[key]);
+        //         uri = uri.replace("{"+ key + "}",uriReplace[key]);
+        //     }
+        // }
         console.log("Http request , url:"+httpUrl , " httpMethod:",httpMethod,"httpData:",httpData);
 
         let httpDataJsonStr = "";   //JS对象转JSON字符串
