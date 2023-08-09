@@ -1,0 +1,150 @@
+{
+  "nested": {
+    "pb": {
+      "options": {
+        "go_package": "./;pb"
+      },
+      "nested": {
+        "Empty": {
+          "fields": {}
+        },
+        "Heartbeat": {
+          "fields": {
+            "sourceUid": {
+              "type": "int32",
+              "id": 1
+            },
+            "time": {
+              "type": "int64",
+              "id": 2
+            },
+            "reqTime": {
+              "type": "int64",
+              "id": 3
+            },
+            "clientReqTime": {
+              "type": "int64",
+              "id": 4
+            },
+            "clientReceiveTime": {
+              "type": "int64",
+              "id": 5
+            },
+            "serverReceiveTime": {
+              "type": "int64",
+              "id": 6
+            },
+            "serverResponseTime": {
+              "type": "int64",
+              "id": 7
+            },
+            "requestId": {
+              "type": "string",
+              "id": 8
+            }
+          }
+        },
+        "FDCloseEvent": {
+          "fields": {
+            "sourceUid": {
+              "type": "int32",
+              "id": 1
+            },
+            "userId": {
+              "type": "int32",
+              "id": 2
+            },
+            "source": {
+              "type": "int32",
+              "id": 3
+            },
+            "contentType": {
+              "type": "int32",
+              "id": 4
+            },
+            "protocolType": {
+              "type": "int32",
+              "id": 5
+            }
+          }
+        },
+        "FDCreateEvent": {
+          "fields": {
+            "sourceUid": {
+              "type": "int32",
+              "id": 1
+            },
+            "userId": {
+              "type": "int32",
+              "id": 2
+            }
+          }
+        },
+        "PingReq": {
+          "fields": {
+            "sourceUid": {
+              "type": "int32",
+              "id": 1
+            },
+            "requestId": {
+              "type": "string",
+              "id": 2
+            },
+            "traceId": {
+              "type": "string",
+              "id": 3
+            },
+            "clientReqTime": {
+              "type": "int64",
+              "id": 4
+            },
+            "clientReceiveTime": {
+              "type": "int64",
+              "id": 5
+            },
+            "serverReceiveTime": {
+              "type": "int64",
+              "id": 6
+            },
+            "serverResponseTime": {
+              "type": "int64",
+              "id": 7
+            }
+          }
+        },
+        "PongRes": {
+          "fields": {
+            "sourceUid": {
+              "type": "int32",
+              "id": 1
+            },
+            "requestId": {
+              "type": "string",
+              "id": 2
+            },
+            "traceId": {
+              "type": "string",
+              "id": 3
+            },
+            "clientReqTime": {
+              "type": "int64",
+              "id": 4
+            },
+            "clientReceiveTime": {
+              "type": "int64",
+              "id": 5
+            },
+            "serverReceiveTime": {
+              "type": "int64",
+              "id": 6
+            },
+            "serverResponseTime": {
+              "type": "int64",
+              "id": 7
+            }
+          }
+        }
+      }
+    }
+  }
+}
