@@ -2,7 +2,7 @@ import * as Cfg from "./config.js"
 import CryptoJS from "crypto-js";
 import * as Util from "./util.js";
 
-import H from "http"
+import  axios  from "axios";
 class HttpRequest {
     Config = Cfg.Config;
     // Token  = "";
@@ -33,40 +33,64 @@ class HttpRequest {
             httpDataJsonStr = JSON.stringify(httpData);         //先把：JS对象转JSON字符串
             encryptData = this.EncryptBodyData(httpDataJsonStr);//开始对传输数据进入加密
         }
-        //构造 HTTP 请求的 各种 参数
-        let op = this.GetRequestOption(encryptData,userToken,uri,httpMethod);
-        // console.log(op);
-        let req = H.request(op,(res)=>{//请求后的回调
-            //能进到这里，证明，至少 TCP 连接成功了
-            console.log('request statusCode:', res.statusCode , " uri:",uri);
-            if(res.statusCode != 200){
-                throw "request http status code err " + res.statusCode;
+
+        let parent = this
+
+        let axiosOp = this.GetAxiosRequestOption(encryptData,userToken,httpUrl,httpMethod);
+        axiosOp['data'] = encryptData;
+        axios(
+            axiosOp
+        ) .then(function(res){
+            console.log("axios success")
+            // console.log(res.data)
+            // resDataBuffter = Buffer.concat(resDataBuffter).toString();
+            // let  myData = eval("(" + resDataBuffter + ")");
+            // console.log("resDataBuffter:",resDataBuffter,"myData:",myData);
+            let data = parent.DeEncryptBodyData(res.data);//解密响应数据
+            if(userCallback){
+                userCallback(uri,null,data);
+            }else{
+                console.log("http request warning: no callback func.")
             }
-            let parent = this;
-            // let responseData = null;
-            let resDataBuffter = [];
-            res.on('data', (chunk) => {//读取响应体数据
-                resDataBuffter.push(chunk);
-            }).on('end', () => {//响应体数据已读取完成
-                    resDataBuffter = Buffer.concat(resDataBuffter).toString();
-                    let  myData = eval("(" + resDataBuffter + ")");
-                    // console.log("resDataBuffter:",resDataBuffter,"myData:",myData);
-                    myData.data = parent.DeEncryptBodyData(myData.data);//解密响应数据
-                    if(userCallback){
-                        userCallback(uri,null,myData);
-                    }else{
-                        console.log("http request warning: no callback func.")
-                    }
-                }
-            );
+
+        }).catch(error => {
+            console.log("axios error");
+            console.log(error)
         });
-        //加入 body 数据
-        req.write(encryptData);
-        req.on('error', error => {
-            console.error("http request("+httpUrl+") err .",error )
-        })
-        //http request 所有参数构造完成，开始正常请求
-        req.end();
+        // //构造 HTTP 请求的 各种 参数
+        // let op = this.GetRequestOption(encryptData,userToken,uri,httpMethod);
+        // // console.log(op);
+        // let req = H.request(op,(res)=>{//请求后的回调
+        //     //能进到这里，证明，至少 TCP 连接成功了
+        //     console.log('request statusCode:', res.statusCode , " uri:",uri);
+        //     if(res.statusCode != 200){
+        //         throw "request http status code err " + res.statusCode;
+        //     }
+        //     let parent = this;
+        //     // let responseData = null;
+        //     let resDataBuffter = [];
+        //     res.on('data', (chunk) => {//读取响应体数据
+        //         resDataBuffter.push(chunk);
+        //     }).on('end', () => {//响应体数据已读取完成
+        //             resDataBuffter = Buffer.concat(resDataBuffter).toString();
+        //             let  myData = eval("(" + resDataBuffter + ")");
+        //             // console.log("resDataBuffter:",resDataBuffter,"myData:",myData);
+        //             myData.data = parent.DeEncryptBodyData(myData.data);//解密响应数据
+        //             if(userCallback){
+        //                 userCallback(uri,null,myData);
+        //             }else{
+        //                 console.log("http request warning: no callback func.")
+        //             }
+        //         }
+        //     );
+        // });
+        // //加入 body 数据
+        // req.write(encryptData);
+        // req.on('error', error => {
+        //     console.error("http request("+httpUrl+") err .",error )
+        // })
+        // //http request 所有参数构造完成，开始正常请求
+        // req.end();
     }
 
     EncryptBodyData(data){
@@ -145,6 +169,15 @@ class HttpRequest {
                 console.log("err");
         }
         return data;
+    }
+    GetAxiosRequestOption(httpDataJsonStr,userToken,httpUrl,method){
+
+        let options = {
+            url : httpUrl,
+            method: method,
+            headers: this.GetCommonHeader(httpDataJsonStr,userToken),
+        }
+        return options;
     }
     //构造 HTTP 公共请求 参数，1基础协议参数 2header公共头信息
     GetRequestOption(httpDataJsonStr,userToken,uri,method){

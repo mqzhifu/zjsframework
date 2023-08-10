@@ -15,6 +15,7 @@ class Test {
         this.gatewayConfig = null;
         this.actionMap =null;
         this.gameMatchRule = null;
+        this.token = "";
     }
     start(){
         try{
@@ -28,6 +29,7 @@ class Test {
     //登陆成功后回调
     callLoginBack(uri,err,data){
         console.log("self UserCallLoginBack success.")
+        this.token = data.data.token;
         this.testGateway()
     }
     //测试长连接
@@ -41,11 +43,13 @@ class Test {
         this.apiLogic.apiLogicGateway.GatewayActionMap(null,this.GatewayActionMapBack.bind(this))
     }
     //获取 函数/ID 映射关系
-    GatewayActionMapBack(data,obj){
+    GatewayActionMapBack(uri,err,data){
         // console.log("GatewayActionMapBack:",data);//数据太大，输出太多
         console.log("GatewayActionMapBack suceess");
-        this.actionMap = data.data;
 
+        this.actionMap = data.data;
+        // console.log( data.data);
+        // return 1;
         this.GameMatchRule();
     }
 
@@ -57,7 +61,7 @@ class Test {
         console.log("GameMatchRuleBack:",data);
 
         this.gameMatchRule = data.data;
-        let ws = new Ws(this.gatewayConfig,this.actionMap,this.gameMatchRule);
+        let ws = new Ws(this.gatewayConfig,this.actionMap,this.gameMatchRule,this.token);
         ws.Start();
     }
 
