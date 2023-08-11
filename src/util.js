@@ -104,4 +104,27 @@ export function stringToUint8Array(str){
     return tmpUint8Array
 }
 
+export function processBufferRange(dataBuffer,start,end){
+    //创建content ArrayBuffer和Uint8Array
+    var contentArrayBuffer = new ArrayBuffer( end - start );
+    var contentUint8Array = new Uint8Array(contentArrayBuffer);
+    var j = 0;
+    for (var i = start; i < end; i++) {
+        contentUint8Array[j] = dataBuffer[i];
+        j++;
+    }
+    return contentUint8Array;
+}
+
+export function processBufferString (dataBuffer,start,end){
+    var str = "";
+    for (var i = start; i < dataBuffer.length; i++) {
+        if (i >= end){
+            break;
+        }
+        str += String.fromCharCode(dataBuffer[i]);
+    }
+    return str;
+}
+
 

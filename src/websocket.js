@@ -1,33 +1,27 @@
 import * as WsNode from "ws";
 import protobufjs from 'protobufjs'
 import * as util from  "./util.js"
-// import  {fs} from "fs"
-// import * as pbJson from "./protobuf/proto/pb.json" assert { type: 'json' }
-// import * as pbJson from "./protobuf/proto/pb.js"
-// import * as pbJson from "./protobuf/proto/common.json" assert { type: 'json' }
-
-
-
-
+// import {aaa} from "./protobuf/proto/gateway.js"
+// import jj from "./protobuf/proto/gateway.json" assert { type: "json" };
 
 class Ws{
+    /*
+        构造函数
+        gatewayConfig：网关配置信息，主要用于连接
+        actionMap：长连接的协议(自定义)相关，主要用于收发消息,拆包、解包
+        gameMatchRule：心跳时间、帧数
+        userToken：登陆/验证
+    */
     constructor(gatewayConfig,actionMap,gameMatchRule,userToken) {
-        // Status.GetDesc();
-        // let s = new Status();
-        // s.GetDesc();
-        // return 1;
         this.userToken = userToken;
-        this.pbRoot = protobufjs.loadSync("./protobuf/proto/gateway.proto");
-
-        this.descPre = "ws ";//日志输出公共前缀
-        this.status = 1;//初始化连接状态
         this.gatewayConfig = gatewayConfig;//网关配置信息
-        // console.log("GatewayConfig:::",GatewayConfig)
         this.actionMap = actionMap;//消息的ID映射
         this.gameMatchRule = gameMatchRule;//游戏匹配的配置信息
 
         this.wsObj = null;//WS连接的对象
-        // console.log("ws constructor");
+
+        this.descPre = "ws ";//日志输出公共前缀
+        this.status = Status.INIT;//初始化连接状态
         this.protocolType  = ProtobufType.WEBSOCKET;//数据传输的协议类型
         this.contentType = ContentType.PROTOBUF;//数据传输的内容类型
         this.logicFrameLoopTimeMs = 0;//每秒多少帧
@@ -37,30 +31,22 @@ class Ws{
         this.callbackMessage = null;
         this.callbackError = null;
 
-    }
+        this.pbRoot = protobufjs.loadSync("./protobuf/proto/gateway.proto");
+        this.pbPackage = "pb.";
 
-    InitProto(){
-        // console.log(pbJson);
-        // let json = require("./protobuf/proto/pb.json")
-        // let root = protobufjs.Root.fromJSON(pbJson)
-        // let msg = root.lookupType("pb.Heartbeat");
-        // console.log(Heartbeat);
     }
     //创建ws长连接，也算是入口函数，得选建立WS连接，才有后续的所有操作
     Start (){
-        // this.InitProto();
+        // console.log(this.actionMap);
         // return 1;
         this.Show("开始创建 ws 连接");
-        if (this.status != 1 && this.status != 11){
+        if (this.status != Status.INIT && this.status != Status.CLOSE){
             return this.Show("ws status 错误， status  !=  init or close",1)
         }
-        // var parent = this
-        // this.closeFlag = 0;//清空 关闭标识
         //根据帧数，计算出 秒数
         this.logicFrameLoopTimeMs = parseInt( 1000 / this.gameMatchRule.fps);
-        // console.log("this.logicFrameLoopTimeMs :",this.logicFrameLoopTimeMs );
-
         this.Show("create new WebSocket url:"+this.GetUrl() +" FPS:" +this.gameMatchRule.fps + " ms:" + this.logicFrameLoopTimeMs +" contentType:" + this.contentType+" protocolType:" + this.protocolType)
+        this.Show("register callback function( onopen onclose onmessage onerror  )")
         //创建ws连接
         this.wsObj = this.CreateWsObj();
         //设置 连接建立成功后的回调 函数
@@ -81,118 +67,89 @@ class Ws{
             parent.Show("wsObj onError:",ev);
         };
     }
-    WsOnMessage(ev){
-        // fs.readAsArrayBuffer(ev.data);
-
-
-        var reader = new FileReader();
-        reader.readAsArrayBuffer(ev.data);
-        reader.onloadend = function(e) {
-
-
-
-            // var dataBuffer = new Uint8Array(reader.result);
-            // //首字母转大写
-            // var actionLow = msgObj.action.substring(0, 1).toUpperCase() + msgObj.action.substring(1)
-            // //拼接成最终classname
-            // var className =  "proto.pb.Response" + actionLow;
-            // var responseProtoClass = eval(className);
-            // //将进制流转换成对象
-            // msgObj.content =  responseProtoClass.deserializeBinary(content).toObject();
-
-
-            var dataBuffer = new Uint8Array(reader.result);
-
-            // debugInfo += "  dataBufferLength:"+dataBuffer.length+" contentType: protobuf ";
-
-            var bytes4 = processBufferRange(dataBuffer,0,4);
-            msgObj.dataLength = Byte4ToInt(bytes4);
-            var bytes1 = processBufferRange(dataBuffer,4,5);
-            msgObj.contentType = Byte1ToInt(bytes1);
-            var bytes1 = processBufferRange(dataBuffer,5,6);
-            msgObj.protocolType = Byte1ToInt(bytes1);
-            var bytes1 = processBufferRange(dataBuffer,6,7);
-            msgObj.serviceId = Byte1ToInt(bytes1);
-            var bytes2 = processBufferRange(dataBuffer,7,9);
-            msgObj.funcId = Byte2ToInt(bytes2);
-            var sessionBytes = processBufferRange(dataBuffer,9,19);
-            msgObj.sessionId = processBufferString(sessionBytes,0);
-            msgObj.sidFid = msgObj.serviceId + "" + msgObj.funcId;
-            var content = processBufferRange(dataBuffer,19,19+msgObj.dataLength);
-
-            var actionMap = parent.getActionById(msgObj.sidFid,"server")
-            // var className =  "proto.pb." + actionMap.request;
-            // var RequestClass = eval( className);
-
-            // debugInfo += " msg.dataLength: "+ msgObj.dataLength + " msg.contentType: " + msgObj.contentType + " msg.protocolType: "+msgObj.protocolType + " serviceId: " + msgObj.serviceId + " funcId:" +  msgObj.funcId +" ";
-            // debugInfo += "service_name: "+ actionMap.service_name + " func_name:" + actionMap.func_name + " className:"+className;
-            // parent.show(debugInfo);
-
-
-            // var aa = proto.pb.EnterBattle()
-            // aa.getPlayer
-            //
-            // int32   code        = 1;
-            // string  errMsg      = 2;
-            // int32   uid         = 3;
-
-            let LoginRes = this.pbRoot.lookupType("pb.LoginRes");
-            let message = LoginRes.create({code:0,errMsg:"",uid:0});
-            var messageObj = LoginRes.decode(message);
-            console.log(messageObj);
-            // content = RequestClass.deserializeBinary(content);
-            // // console.log("=====content:",content);
-            // content = content.toObject()
-            // // console.log("content: " ,content)
-            // msgObj.content = content
-            // parent.router(msgObj);
-        };
-    }
-    UpStatus(status){
-        console.log("status:",status)
-        // console.log(Status.GetDesc()[2]);
-        // return 1;
-        this.Show("up status ,  old status:" + this.status   +  "("+ Status.GetDesc()[this.status]+") , new status:"  + status + "("+  Status.GetDesc()[status] + ")");
-        this.status = status;
-    }
+    //连接成功后，回调
     WsOnOpen(){
-        console.log("onOpen : ws connect server : Success  ");
+        this.Show(" onOpen , connect server Success  ");
         this.UpStatus(Status.CONNECTED);
         if (this.callbackOpen){
             this.callbackOpen();
         }
-        let Login = this.pbRoot.lookupType("pb.Login");
-        let msg = Login.create({"token":this.userToken})
+        //登陆验证
+        var LoginObj = this.CreatePbObj(this.pbPackage+"Login");
+        LoginObj.token = this.userToken;
+        this.SendMsg("CS_Login",LoginObj);
 
-        const buffer = Login.encode(msg).finish();
-
-        this.SendMsg("CS_Login",buffer)
-        // this.wsObj.send(buffer);
-        // console.log(this.pbRoot.toJSON("pb.Login"))
-        // let aa = Login.toObject({})
-        // let ss = Login.create();
-        // ss.SourceUid = 1;
-
-        // let aa = new comm.Heartbeat();
-        // let a = this.pbRoot.get("Login")
-
-        // console.log(Login.sourceUid);
-        // console.log(Login.toObject({},{"default":true}))
-        // console.log(Login.toJSON());
-        // pb.Login;
-        // console.log("===============================================================",Login.toJSON());
-        // Login.create({"token":this.token})
-        // var requestLoginObj = new proto.pb.Login();
-        // requestLoginObj.setToken(self.token) ;
-        // this.sendMsg("CS_Login",requestLoginObj);
+        // let Login = this.pbRoot.lookupType("pb.Login");
+        // let msg = Login.toObject({},{defaults:true});
+        // msg.token = this.userToken;
+        // let msg = Login.create(msg);
+        // let buff = Login.encode(msg).finish();
     }
+    //接收消息，回调
+    WsOnMessage(ev){
+        let ab = new ArrayBuffer(ev.data.length);
+        var dataBuffer = new Uint8Array(ab);
+        for(let i =0;i<ev.data.length;i++){
+            dataBuffer[i] = ev.data[i];
+        }
+        //创建一个 msg object ， 是公共结构体
+        let msgObj = this.CreatePbObj(this.pbPackage+"Msg");
+        //数据长度
+        var bytes4 = util.processBufferRange(dataBuffer,0,4);
+        msgObj.dataLength = util.Byte4ToInt(bytes4);
+        //传输内容类型
+        var bytes1 = util.processBufferRange(dataBuffer,4,5);
+        msgObj.contentType = util.Byte1ToInt(bytes1);
+        //传输协议
+        var bytes1 = util.processBufferRange(dataBuffer,5,6);
+        msgObj.protocolType = util.Byte1ToInt(bytes1);
+        //serviceId
+        var bytes1 = util.processBufferRange(dataBuffer,6,7);
+        msgObj.serviceId = util.Byte1ToInt(bytes1);
+        //funcId
+        var bytes2 = util.processBufferRange(dataBuffer,7,9);
+        msgObj.funcId = util.Byte2ToInt(bytes2);
+        //session
+        var sessionBytes = util.processBufferRange(dataBuffer,9,19);
+        msgObj.sessionId = util.processBufferString(sessionBytes,0);
+        msgObj.sidFid = msgObj.serviceId + "" + msgObj.funcId;
+        //content
+        var content = util.processBufferRange(dataBuffer,19,19+msgObj.dataLength);
+        //解包 content 的具体内容，并映射成一个 object
+        if( this.contentType == ContentType.JSON ){
+            msgObj.content = JSON.parse(content);
+        }else if( this.contentType == ContentType.PROTOBUF ) {
+            var actionMap = this.getActionById(msgObj.sidFid,"server")
+            // console.log(actionMap.request);
+            let LoginRes = this.pbRoot.lookupType("pb."+actionMap.request);
+            msgObj.content = LoginRes.decode(content);
+        }else{
+            console.log("contentType err");
+        }
+
+        this.ShowComplex("onMessage:",msgObj);
+        if(this.callbackMessage){
+            this.callbackMessage();
+        }
+
+    }
+    //连接的状态更新
+    UpStatus(status){
+        this.Show("up status ,  old status:" + this.status   +  "("+ Status.GetDesc()[this.status]+") , new status:"  + status + "("+  Status.GetDesc()[status] + ")");
+        this.status = status;
+    }
+    //创建一个 protobuf 对象
+    CreatePbObj(className){
+        var obj = this.pbRoot.lookupType(className);
+        return  obj.toObject({},{defaults:true});
+    }
+    //监听到连接关闭
     WsOnClose  (ev){
         this.Show("server onclose")
         this.UpStatus(Status.CLOSE);
-        // if (this.callbackClose){
-        //     this.callbackClose();
-        // }
-
+        if (this.callbackClose){
+            this.callbackClose();
+        }
         // clearInterval(self.UserHeartbeatTimer)
         // clearInterval(self.RoomHeartbeatTimer)
 
@@ -240,86 +197,92 @@ class Ws{
     //输出日志(字符串)
     Show(str,showNoticeMsg = 0){
         console.log(this.descPre + " " + str)
-        // if (showNoticeMsg){
-        //     this.noticeMsg(str);
-        // }
     }
     //输出日志(字符串+对象/数组)
     ShowComplex = function(str,complexType,showNoticeMsg = 0){
         console.log(this.descPre + " " + str ,complexType)
-        // if (showNoticeMsg){
-        //     this.noticeMsg(str);
-        // }
     }
     //抛出异常
     ThrowEx(str){
         throw str;
-
     }
-
-    SendMsg =  function ( action,contentObj  ){
-        var prefix = " <sendMsg> action: "+ action;
-        var id = this.getActionId(action,"client");
-        if (!id){
-            this.show(prefix+"err:get action empty ");
+    /*
+        发送消息，自定义协议格式：
+        1-4字节：当前包数据总长度，~可用于：TCP粘包的情况
+        5字节：content type
+        6字节：protocol type
+        7字节 :服务Id
+        8-9字节 :函数Id
+        10-19：预留，还没想好，可以存sessionId，也可以换成UID
+        19 以后为内容体
+        结尾会添加一个字节：\f ,可用于 TCP 粘包 分隔
+    */
+    SendMsg ( actionName,contentObj  ){
+        var prefix = " <sendMsg> action: "+ actionName;
+        var actionInfo = this.getActionByName(actionName,"client");
+        // console.log(actionInfo);
+        // return 1;
+        if (!actionInfo){
+            this.Show(prefix+"err:get action empty ");
             return false;
         }
+
         if(!contentObj){
             this.show(prefix+" err:contentObj empty.")
             return false;
         }
 
         var content = null;
+        if( this.contentType == ContentType.JSON ){
+            content = JSON.stringify(contentObj);
+        }else if( this.contentType == ContentType.PROTOBUF ) {
+            let Login = this.pbRoot.lookupType(actionInfo.request);
+            content = Login.encode(Login.create(contentObj)).finish();
+        }else{
+            console.log("contentType err");
+        }
 
-        //解析C端发送的数据，这一层，对于用户层的content数据不做处理
-        //1-4字节：当前包数据总长度，~可用于：TCP粘包的情况
-        //5字节：content type
-        //6字节：protocol type
-        //7字节 :服务Id
-        //8-9字节 :函数Id
-        //10-19：预留，还没想好，可以存sessionId，也可以换成UID
-        //19 以后为内容体
-        //结尾会添加一个字节：\f ,可用于 TCP 粘包 分隔
-
-        var content = content = contentObj;
-
-        var serviceId = id.toString().substring(0,2);
-        var funcId = id.toString().substring(2);
+        var serviceId = actionInfo.id.toString().substring(0,2);
+        var funcId = actionInfo.id.toString().substring(2);
         var session = "1234567890";
-        var debugInfo =  prefix + " fullId: " + id + " serviceId: " + serviceId + " funcId: " + funcId + " contentType:"+ContentType.GetDesc()[this.contentType]  ;
-
         var contentLenByte = util.intToByte4( content.length);
-
         var contentTypeByte = util.intToOneByteArr(this.contentType);
         var protocolTypeByte = util.intToOneByteArr(this.protocolType);
         var serviceIdByte = util.intToOneByteArr(parseInt(serviceId));
         var funcIdByte = util.intToTwoByteArr(parseInt(funcId));
         var sessionByte = util.stringToUint8Array(session);
-        // var contentByte = stringToUint8Array(content);
-
         var endStr = new Uint8Array(1);
         endStr[0] = "\f";
-        content =  util.concatenate(contentLenByte,contentTypeByte,protocolTypeByte,serviceIdByte,funcIdByte,sessionByte,content,endStr)  ;
 
+        var debugInfo =  prefix + " fullId: " + actionInfo.id + " serviceId: " + serviceId + " funcId: " + funcId + " contentType:"+ContentType.GetDesc()[this.contentType]  ;
+        console.log(debugInfo);
 
-        // this.showComplex("<sendMsg final>" + debugLog + " " , content);
-
-        this.wsObj.send(content);
+        let contentBytes =  util.concatenate(contentLenByte,contentTypeByte,protocolTypeByte,serviceIdByte,funcIdByte,sessionByte,content,endStr)  ;
+        this.wsObj.send(contentBytes);
 
     }
-
-    getActionId = function (action,category){
-        // console.log(this.actionMap);
+    //根据 id 获取 action map 一行
+    getActionById(id,category){
         var data = this.actionMap[category];
         for(let key  in data){
-            if (data[key].func_name == action){
-                return data[key].id;
+            if (key == id){
+                return data[key];
             }
         }
-        this.show("getActionId is empty, action:"+action + " category:"+category)
+        this.Show("getActionById is empty, id:"+id + " category:"+category)
         return "";
-    };
-
+    }
+    //根据 name 获取 action map 一行
+    getActionByName(name,category){
+        var data = this.actionMap[category];
+        for(let key  in data){
+            if (data[key].func_name == name){
+                return data[key];
+            }
+        }
+        this.Show("getActionById is empty, name:"+name + " category:"+category)
+        return "";
+    }
 
 }
 
@@ -359,8 +322,8 @@ class ContentType {
     static PROTOBUF = 2;
     static GetDesc(){
         let objList = new Object();
-        objList[ProtobufType.JSON] = "json";
-        objList[ProtobufType.PROTOBUF] = "protobuf";
+        objList[ContentType.JSON] = "json";
+        objList[ContentType.PROTOBUF] = "protobuf";
 
         return objList;
     }
@@ -371,9 +334,9 @@ class ProtobufType{
     static UDP = 3;
     static GetDesc(){
         let objList = new Object();
-        objList[ContentType.TCP] = "TCP";
-        objList[ContentType.WEBSOCKET] = "WEBSOCKET";
-        objList[ContentType.UDP] = "UDP";
+        objList[ProtobufType.TCP] = "TCP";
+        objList[ProtobufType.WEBSOCKET] = "WEBSOCKET";
+        objList[ProtobufType.UDP] = "UDP";
 
         return objList;
     }
