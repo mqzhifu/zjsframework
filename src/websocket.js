@@ -2,7 +2,7 @@ import * as WsNode from "ws";
 import protobufjs from 'protobufjs'
 import * as util from  "./util.js"
 // import {aaa} from "./protobuf/proto/gateway.js"
-// import jj from "./protobuf/proto/gateway.json" assert { type: "json" };
+import gatewayJson from "./protobuf/proto/gateway.json" assert { type: "json" };
 
 class Ws{
     /*
@@ -19,7 +19,7 @@ class Ws{
         this.gameMatchRule = gameMatchRule;//游戏匹配的配置信息
 
         this.wsObj = null;//WS连接的对象
-
+        this.envMode = "";
         this.descPre = "ws ";//日志输出公共前缀
         this.status = Status.INIT;//初始化连接状态
         this.protocolType  = ProtobufType.WEBSOCKET;//数据传输的协议类型
@@ -31,7 +31,9 @@ class Ws{
         this.callbackMessage = null;
         this.callbackError = null;
 
-        this.pbRoot = protobufjs.loadSync("./protobuf/proto/gateway.proto");
+        console.log("start load proto json ")
+        // this.pbRoot = protobufjs.loadSync("./protobuf/proto/gateway.proto");
+        this.pbRoot = protobufjs.Root.fromJSON(gatewayJson);
         this.pbPackage = "pb.";
 
     }
@@ -77,7 +79,7 @@ class Ws{
         //登陆验证
         var LoginObj = this.CreatePbObj(this.pbPackage+"Login");
         LoginObj.token = this.userToken;
-        this.SendMsg("CS_Login",LoginObj);
+        this.SendMsgById(90104,LoginObj);//CS_Login
 
         // let Login = this.pbRoot.lookupType("pb.Login");
         // let msg = Login.toObject({},{defaults:true});
@@ -85,13 +87,62 @@ class Ws{
         // let msg = Login.create(msg);
         // let buff = Login.encode(msg).finish();
     }
+    SetHeartbeat(){
+        this.Show("SetHeartbeat:");
+        var HeartbeatObj = this.CreatePbObj(this.pbPackage+"Heartbeat");
+
+        // var ll = new protobufjs.util.Long();
+        // ll.add(1692007158489);
+        // ll.
+
+        var bb = protobufjs.util.LongBits.fromNumber(1692007158489)
+        // ll.add("1692007158489");
+        // console.log(ll,bb);
+
+        // return 1;
+        HeartbeatObj.clientReqTime = bb;
+        console.log(HeartbeatObj);
+        // LoginObj.token = this.userToken;
+        // //心跳，长连接保活。(不要与PING混淆)
+        // message Heartbeat{
+        //     int32   source_uid              = 1 ;
+        //     int64   time                    = 2 ;//这个字段不用了，用下面的字段，但保留
+        //     int64   req_time                = 3 ;//这个字段不用了，用下面的字段，但保留
+        //     int64   client_req_time         = 4 ;
+        //     int64   client_receive_time     = 5 ;
+        //     int64   server_receive_time     = 6 ;
+        //     int64   server_response_time    = 7 ;
+        //     string  request_id              = 8 ;
+        // }
+        // protobufjs.util.Long
+        // var s = {Long:"111"};
+        // console.log(s)
+        this.SendMsgById(90110,HeartbeatObj);//CS_Heartbeat
+    }
     //接收消息，回调
     WsOnMessage(ev){
-        let ab = new ArrayBuffer(ev.data.length);
-        var dataBuffer = new Uint8Array(ab);
-        for(let i =0;i<ev.data.length;i++){
-            dataBuffer[i] = ev.data[i];
+        // console.log("WsOnMessage ev.data:",ev.data , " size:",ev.data.size);
+        // console.log("arrayBuffer:",ev.data.slice(0,10));
+        var ab = 0;
+        var parent = this;
+        if(this.envMode == "browser"){
+            var reader = new FileReader();
+            reader.readAsArrayBuffer(ev.data);
+            reader.onloadend = function(e) {
+                var dataBuffer = new Uint8Array(reader.result);
+                parent.Unpack(dataBuffer);
+            }
+        }else{
+            ab = new ArrayBuffer(ev.data.length);
+            var dataBuffer = new Uint8Array(ab);
+            for(let i =0;i<ev.data.length;i++){
+                dataBuffer[i] = ev.data[i];
+            }
+            this.Unpack(dataBuffer);
         }
+    }
+    //解包
+    Unpack(dataBuffer){
         //创建一个 msg object ， 是公共结构体
         let msgObj = this.CreatePbObj(this.pbPackage+"Msg");
         //数据长度
@@ -119,6 +170,7 @@ class Ws{
         if( this.contentType == ContentType.JSON ){
             msgObj.content = JSON.parse(content);
         }else if( this.contentType == ContentType.PROTOBUF ) {
+            console.log("msgObj:",msgObj);
             var actionMap = this.getActionById(msgObj.sidFid,"server")
             // console.log(actionMap.request);
             let LoginRes = this.pbRoot.lookupType("pb."+actionMap.request);
@@ -128,11 +180,18 @@ class Ws{
         }
 
         this.ShowComplex("onMessage:",msgObj);
+        if( "90112" == msgObj.sidFid ){//
+            this.SetHeartbeat();
+        }else{
+
+            console.log(msgObj.content.serverReceiveTime.toString());
+        }
+
         if(this.callbackMessage){
             this.callbackMessage();
         }
-
     }
+
     //连接的状态更新
     UpStatus(status){
         this.Show("up status ,  old status:" + this.status   +  "("+ Status.GetDesc()[this.status]+") , new status:"  + status + "("+  Status.GetDesc()[status] + ")");
@@ -181,14 +240,17 @@ class Ws{
     CreateWsObj(){
         let wsObj = null;
         if ( typeof(window) == "undefined") {
+            this.envMode = "nodejs";
             this.Show("this is not browser ,use nodejs WS lib");
+
             wsObj = new WsNode.WebSocket(this.GetUrl());
         }else{
+            this.envMode = "browser";
+            this.Show("this is browser,use native WS lib");
             if(!window.WebSocket || typeof WebSocket == 'undefined'){
                 ThrowEx("当前浏览器不支持，无法使用");
             }
 
-            this.Show("this is browser" ,window)
             wsObj = new WebSocket(this.GetUrl());
         }
 
@@ -217,10 +279,11 @@ class Ws{
         19 以后为内容体
         结尾会添加一个字节：\f ,可用于 TCP 粘包 分隔
     */
-    SendMsg ( actionName,contentObj  ){
+    SendMsgById ( actionName,contentObj  ){
         var prefix = " <sendMsg> action: "+ actionName;
-        var actionInfo = this.getActionByName(actionName,"client");
-        // console.log(actionInfo);
+        // var actionInfo = this.getActionByName(actionName,"client");
+        var actionInfo = this.getActionById(actionName,"client");
+        console.log(actionInfo);
         // return 1;
         if (!actionInfo){
             this.Show(prefix+"err:get action empty ");
@@ -258,6 +321,7 @@ class Ws{
         console.log(debugInfo);
 
         let contentBytes =  util.concatenate(contentLenByte,contentTypeByte,protocolTypeByte,serviceIdByte,funcIdByte,sessionByte,content,endStr)  ;
+        console.log("start sending.....")
         this.wsObj.send(contentBytes);
 
     }

@@ -48,6 +48,8 @@ class Test {
         console.log("GatewayActionMapBack suceess");
 
         this.actionMap = data.data;
+        // console.log(data.data);
+        // return 1;
         // console.log( data.data);
         // return 1;
         this.GameMatchRule();
