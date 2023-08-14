@@ -3,6 +3,7 @@ import protobufjs from 'protobufjs'
 import * as util from  "./util.js"
 // import {aaa} from "./protobuf/proto/gateway.js"
 import gatewayJson from "./protobuf/proto/gateway.json" assert { type: "json" };
+//pbjs.cmd -t json -o  gateway.json .\gateway.proto
 
 class Ws{
     /*
@@ -90,33 +91,9 @@ class Ws{
     SetHeartbeat(){
         this.Show("SetHeartbeat:");
         var HeartbeatObj = this.CreatePbObj(this.pbPackage+"Heartbeat");
-
-        // var ll = new protobufjs.util.Long();
-        // ll.add(1692007158489);
-        // ll.
-
-        var bb = protobufjs.util.LongBits.fromNumber(1692007158489)
-        // ll.add("1692007158489");
-        // console.log(ll,bb);
-
-        // return 1;
-        HeartbeatObj.clientReqTime = bb;
-        console.log(HeartbeatObj);
-        // LoginObj.token = this.userToken;
-        // //心跳，长连接保活。(不要与PING混淆)
-        // message Heartbeat{
-        //     int32   source_uid              = 1 ;
-        //     int64   time                    = 2 ;//这个字段不用了，用下面的字段，但保留
-        //     int64   req_time                = 3 ;//这个字段不用了，用下面的字段，但保留
-        //     int64   client_req_time         = 4 ;
-        //     int64   client_receive_time     = 5 ;
-        //     int64   server_receive_time     = 6 ;
-        //     int64   server_response_time    = 7 ;
-        //     string  request_id              = 8 ;
-        // }
-        // protobufjs.util.Long
-        // var s = {Long:"111"};
-        // console.log(s)
+        let longObj = protobufjs.util.Long.fromNumber(1692007158489);
+        HeartbeatObj.clientReqTime = longObj;
+        // console.log(HeartbeatObj);
         this.SendMsgById(90110,HeartbeatObj);//CS_Heartbeat
     }
     //接收消息，回调
