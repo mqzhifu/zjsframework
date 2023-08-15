@@ -3,7 +3,16 @@ import protobufjs from 'protobufjs'
 import * as util from  "./util.js"
 // import {aaa} from "./protobuf/proto/gateway.js"
 import gatewayJson from "./protobuf/proto/gateway.json" assert { type: "json" };
-//pbjs.cmd -t json -o  gateway.json .\gateway.proto
+
+
+/*
+    pbjs.cmd -t json -o  gateway.json .\gateway.proto
+    D:\devsoft\protoc.exe --go_out=plugins=grpc:d:\ .\gateway.proto
+    webpack.cmd
+    go install github.com/golang/protobuf/protoc-gen-go@v1.2.0
+    cp .\dist\main.js D:\golang\zgoframe\static\js\
+
+*/
 
 class Ws{
     /*
@@ -13,8 +22,9 @@ class Ws{
         gameMatchRule：心跳时间、帧数
         userToken：登陆/验证
     */
-    constructor(gatewayConfig,actionMap,gameMatchRule,userToken) {
+    constructor(gatewayConfig,actionMap,gameMatchRule,userToken,ContentType,ProtobufType) {
         this.userToken = userToken;
+        // this.userToken = "112233445566";
         this.gatewayConfig = gatewayConfig;//网关配置信息
         this.actionMap = actionMap;//消息的ID映射
         this.gameMatchRule = gameMatchRule;//游戏匹配的配置信息
@@ -23,9 +33,10 @@ class Ws{
         this.envMode = "";
         this.descPre = "ws ";//日志输出公共前缀
         this.status = Status.INIT;//初始化连接状态
-        this.protocolType  = ProtobufType.WEBSOCKET;//数据传输的协议类型
-        this.contentType = ContentType.PROTOBUF;//数据传输的内容类型
+        this.protocolType  = ContentType;//数据传输的协议类型
+        this.contentType = ProtobufType;//数据传输的内容类型
         this.logicFrameLoopTimeMs = 0;//每秒多少帧
+        this.heartbeatInterval = null;
 
         this.callbackClose = null;
         this.callbackOpen = null;
@@ -40,8 +51,6 @@ class Ws{
     }
     //创建ws长连接，也算是入口函数，得选建立WS连接，才有后续的所有操作
     Start (){
-        // console.log(this.actionMap);
-        // return 1;
         this.Show("开始创建 ws 连接");
         if (this.status != Status.INIT && this.status != Status.CLOSE){
             return this.Show("ws status 错误， status  !=  init or close",1)
@@ -72,7 +81,7 @@ class Ws{
     }
     //连接成功后，回调
     WsOnOpen(){
-        this.Show(" onOpen , connect server Success  ");
+        this.Show("onOpen , connect server Success  ");
         this.UpStatus(Status.CONNECTED);
         if (this.callbackOpen){
             this.callbackOpen();
@@ -88,28 +97,24 @@ class Ws{
         // let msg = Login.create(msg);
         // let buff = Login.encode(msg).finish();
     }
-    SetHeartbeat(){
-        this.Show("SetHeartbeat:");
-        var HeartbeatObj = this.CreatePbObj(this.pbPackage+"Heartbeat");
-        let longObj = protobufjs.util.Long.fromNumber(1692007158489);
-        HeartbeatObj.clientReqTime = longObj;
-        // console.log(HeartbeatObj);
-        this.SendMsgById(90110,HeartbeatObj);//CS_Heartbeat
+    //设置心跳定时器
+    SetHeartbeatInterval(){
+        this.heartbeatInterval = setInterval(this.CS_Heartbeat.bind(this),5000);
     }
     //接收消息，回调
     WsOnMessage(ev){
-        // console.log("WsOnMessage ev.data:",ev.data , " size:",ev.data.size);
-        // console.log("arrayBuffer:",ev.data.slice(0,10));
+        this.Show("onMessage...");
         var ab = 0;
         var parent = this;
-        if(this.envMode == "browser"){
+        if(this.envMode == "browser"){//浏览器
+            this.Show("size:"+ev.data.size);
             var reader = new FileReader();
             reader.readAsArrayBuffer(ev.data);
             reader.onloadend = function(e) {
                 var dataBuffer = new Uint8Array(reader.result);
                 parent.Unpack(dataBuffer);
             }
-        }else{
+        }else{//nodejs
             ab = new ArrayBuffer(ev.data.length);
             var dataBuffer = new Uint8Array(ab);
             for(let i =0;i<ev.data.length;i++){
@@ -120,6 +125,7 @@ class Ws{
     }
     //解包
     Unpack(dataBuffer){
+        // console.log("Unpack:",dataBuffer);
         //创建一个 msg object ， 是公共结构体
         let msgObj = this.CreatePbObj(this.pbPackage+"Msg");
         //数据长度
@@ -140,35 +146,98 @@ class Ws{
         //session
         var sessionBytes = util.processBufferRange(dataBuffer,9,19);
         msgObj.sessionId = util.processBufferString(sessionBytes,0);
+        //sidFid
         msgObj.sidFid = msgObj.serviceId + "" + msgObj.funcId;
         //content
         var content = util.processBufferRange(dataBuffer,19,19+msgObj.dataLength);
-        //解包 content 的具体内容，并映射成一个 object
-        if( this.contentType == ContentType.JSON ){
-            msgObj.content = JSON.parse(content);
-        }else if( this.contentType == ContentType.PROTOBUF ) {
-            console.log("msgObj:",msgObj);
-            var actionMap = this.getActionById(msgObj.sidFid,"server")
-            // console.log(actionMap.request);
-            let LoginRes = this.pbRoot.lookupType("pb."+actionMap.request);
-            msgObj.content = LoginRes.decode(content);
-        }else{
-            console.log("contentType err");
+
+        // console.log("dataBuffer.length:",dataBuffer.length,",content length:,",content.length);
+
+        var actionMap = this.getActionById(msgObj.sidFid,"server");
+        // console.log("pb."+actionMap.request,content);
+
+        if( this.contentType != msgObj.contentType){
+            this.Show("contentType != msgObj.contentType");
+            return  1;
         }
 
-        this.ShowComplex("onMessage:",msgObj);
-        if( "90112" == msgObj.sidFid ){//
-            this.SetHeartbeat();
+        if( this.protocolType != msgObj.protocolType){
+            this.Show("protocolType != msgObj.protocolType");
+            return 1;
+        }
+        //解包 content 的具体内容，并映射成一个 object
+        if( this.contentType == ContentType.JSON ){
+            content = util.processBufferString(content,0);
+            msgObj.content = JSON.parse(content);
+        }else if( this.contentType == ContentType.PROTOBUF ) {
+            let pbObj = this.pbRoot.lookupType("pb."+actionMap.request);
+            msgObj.content = pbObj.decode(content);
         }else{
+            this.Show("Unpack contentType err:"+this.contentType.toString());
+        }
 
-            console.log(msgObj.content.serverReceiveTime.toString());
+        this.ShowComplex("Unpack",msgObj);
+
+        this.Router(msgObj);
+    }
+    //路由，目前仅处理 登陆成功 和 心跳 ，后续逻辑交给 调用者
+    Router(msgObj){
+        let row = this.getActionById(msgObj.sidFid,"server");
+        console.log("Router func_name:",row.func_name , " , sidFid:",msgObj.sidFid,);
+        switch (row.func_name){
+            case "SC_Login":
+                this.SC_Login(msgObj);
+                break;
+            case "SC_Heartbeat":
+                this.SC_Heartbeat(msgObj);
+                break;
+            case "SC_Pong":
+                this.SC_Pong(msgObj);
+                break;
+            default :
+                this.Show("Router no need process.")
         }
 
         if(this.callbackMessage){
-            this.callbackMessage();
+            this.callbackMessage(msgObj);
         }
+        // eval( "this."+row.func_name+"(msgObj.content)" );
     }
+    //发送心跳消息
+    CS_Heartbeat(){
+        this.Show("SetHeartbeat:");
+        let HeartbeatObj = this.CreatePbObj(this.pbPackage+"Heartbeat");
+        let longObj = protobufjs.util.Long.fromNumber(util.UnixStamp13());//1692007158489
+        HeartbeatObj.clientReqTime = longObj;
+        // console.log(HeartbeatObj);
+        this.SendMsgById(90110,HeartbeatObj);//CS_Heartbeat
+    }
+    //接收心跳消息
+    SC_Heartbeat(msgObj){
+        this.ShowComplex("SC_Heartbeat:",msgObj);
+    }
+    //接收S响应消息
+    SC_Pong(msgObj){
+        this.ShowComplex("SC_Pong back:",msgObj);
+        // console.log("in SC_Pong");
+    }
+    //接收登陆结果
+    SC_Login(msgObj){
+        if(msgObj.content.code != 200){
+            this.Show("login failed ,err msg:"+msgObj.content.errMsg)
+            return 1;
+        }
+        this.Show("login success~~~");
+        this.CS_Ping();
+        // this.SetHeartbeatInterval();
+    }
+    //发送心跳消息
+    CS_Ping(){
+        let PingReq = this.CreatePbObj("pb.PingReq");
+        PingReq.requestId = "aaaaa";
 
+        this.SendMsgById(90106,PingReq);//CS_Login
+    }
     //连接的状态更新
     UpStatus(status){
         this.Show("up status ,  old status:" + this.status   +  "("+ Status.GetDesc()[this.status]+") , new status:"  + status + "("+  Status.GetDesc()[status] + ")");
@@ -257,10 +326,10 @@ class Ws{
         结尾会添加一个字节：\f ,可用于 TCP 粘包 分隔
     */
     SendMsgById ( actionName,contentObj  ){
-        var prefix = " <sendMsg> action: "+ actionName;
+        var prefix = "<sendMsg> action: "+ actionName;
         // var actionInfo = this.getActionByName(actionName,"client");
         var actionInfo = this.getActionById(actionName,"client");
-        console.log(actionInfo);
+        // console.log(actionInfo);
         // return 1;
         if (!actionInfo){
             this.Show(prefix+"err:get action empty ");
@@ -275,11 +344,13 @@ class Ws{
         var content = null;
         if( this.contentType == ContentType.JSON ){
             content = JSON.stringify(contentObj);
+            content = util.stringToUint8Array(content);
+            // console.log("json:",content);
         }else if( this.contentType == ContentType.PROTOBUF ) {
             let Login = this.pbRoot.lookupType(actionInfo.request);
             content = Login.encode(Login.create(contentObj)).finish();
         }else{
-            console.log("contentType err");
+            this.Show("contentType err");
         }
 
         var serviceId = actionInfo.id.toString().substring(0,2);
@@ -294,11 +365,11 @@ class Ws{
         var endStr = new Uint8Array(1);
         endStr[0] = "\f";
 
-        var debugInfo =  prefix + " fullId: " + actionInfo.id + " serviceId: " + serviceId + " funcId: " + funcId + " contentType:"+ContentType.GetDesc()[this.contentType]  ;
-        console.log(debugInfo);
+        var debugInfo =  prefix + " fullId: " + actionInfo.id + " serviceId: " + serviceId + " funcId: " + funcId + " contentType:"+ContentType.GetDesc()[this.contentType]+ " contentType:"+ProtobufType.GetDesc()[this.protocolType]  ;
+        this.Show(debugInfo);
 
         let contentBytes =  util.concatenate(contentLenByte,contentTypeByte,protocolTypeByte,serviceIdByte,funcIdByte,sessionByte,content,endStr)  ;
-        console.log("start sending.....")
+        // console.log("start sending.....")
         this.wsObj.send(contentBytes);
 
     }

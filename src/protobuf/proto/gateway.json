@@ -143,12 +143,12 @@
               "type": "int32",
               "id": 1
             },
-            "errMsg": {
-              "type": "string",
-              "id": 2
-            },
             "uid": {
               "type": "int32",
+              "id": 2
+            },
+            "errMsg": {
+              "type": "string",
               "id": 3
             }
           }
