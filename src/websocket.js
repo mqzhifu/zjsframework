@@ -456,4 +456,4 @@ class ProtobufType{
 
 
 
-export {Ws}
+export {Ws ,ProtobufType,ContentType}
