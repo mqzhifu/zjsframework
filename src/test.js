@@ -1,6 +1,8 @@
 import * as Cfg from "./config.js"          //引入公共配置信息
 import {ApiLogic} from "./apiLogic/apiLogic.js";
 import {Ws} from "./websocket.js";
+import {ContentType} from "./websocket.js";
+import {ProtobufType} from "./websocket.js";
 //初始化配置信息
 let http = new Cfg.Http("127.0.0.1","1111","http");
 let header =  new Cfg.Header("12","6","imzgoframe","","xiaoz","qwerASDFzxcv");
